@@ -1,3 +1,9 @@
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
+import flet as ft
+from alert import AlertManager
+from deposito_strumenti import DepositoStrumenti
 import flet as ft
 from alert import AlertManager
 from deposito_strumenti import DepositoStrumenti
@@ -36,7 +42,10 @@ def main(page: ft.Page):
     lista_strumenti = ft.ListView(expand=True, spacing=5, padding=10, auto_scroll=True)
 
     # Tutti i TextField per le info necessarie per aggiungere un nuovo strumento (tipo, marca, anno, contatore posti)
-    # TODO
+    input_tipo = ft.TextField(label="Tipo")
+    input_marca = ft.TextField(label="Marca")
+    input_anno = ft.TextField(label="Anno acquisto")
+    input_valore = ft.TextField(width=60, value="0", disabled=True, text_align=ft.TextAlign.CENTER)
 
     # --- FUNZIONI APP ---
     def aggiorna_lista_strumenti():
@@ -44,25 +53,63 @@ def main(page: ft.Page):
         for strumento in deposito.strumenti_ordinati_per_marca():
             stato = "✅" if strumento.disponibile else "⛔"
             lista_strumenti.controls.append(ft.Text(f"{stato} {strumento}"))
+        page.update()
 
     # --- HANDLERS APP ---
     def cambia_tema(e):
         page.theme_mode = ft.ThemeMode.DARK if toggle_cambia_tema.value else ft.ThemeMode.LIGHT
         toggle_cambia_tema.label = "Tema scuro" if toggle_cambia_tema.value else "Tema chiaro"
+        page.update()
 
     def conferma_responsabile(e):
         deposito.set_responsabile(input_responsabile.value)
         txt_responsabile.value = f"Responsabile: {deposito.get_responsabile()}"
+        page.update()
 
     # Handlers per la gestione dei pulsanti utili all'inserimento di un nuovo strumento
-    # TODO
+    def diminuisci_valore(e):
+        valore_attuale = int(input_valore.value)
+        if valore_attuale > 0:
+            input_valore.value = str(valore_attuale - 1)
+            page.update()
+
+    def aumenta_valore(e):
+        valore_attuale = int(input_valore.value)
+        input_valore.value = str(valore_attuale + 1)
+        page.update()
+
+    def aggiungi_strumento(e):
+        tipo = input_tipo.value.strip()
+        marca = input_marca.value.strip()
+
+        if not tipo or not marca:
+            alert.show_alert("❌ Errore: inserisci tutti i campi richiesti.")
+            return
+
+        try:
+            anno = int(input_anno.value)
+            valore = float(input_valore.value)
+        except ValueError:
+            alert.show_alert("❌ Errore: inserisci valori numerici validi per anno e valore.")
+            return
+
+        deposito.aggiungi_strumento(tipo, marca, anno, valore)
+
+        input_tipo.value = ""
+        input_marca.value = ""
+        input_anno.value = ""
+        input_valore.value = "0"
+
+        aggiorna_lista_strumenti()
 
     # --- EVENTI ---
     toggle_cambia_tema = ft.Switch(label="Tema scuro", value=True, on_change=cambia_tema)
     pulsante_conferma_responsabile = ft.Button("Conferma", on_click=conferma_responsabile)
 
     # Pulsanti per la gestione dell'inserimento di un nuovo strumento
-    # TODO
+    pulsante_meno = ft.IconButton(icon=ft.Icons.REMOVE, icon_color="red", on_click=diminuisci_valore)
+    pulsante_piu = ft.IconButton(icon=ft.Icons.ADD, icon_color="green", on_click=aumenta_valore)
+    pulsante_aggiungi_strumento = ft.Button("Aggiungi strumento", on_click=aggiungi_strumento)
 
     # --- LAYOUT ---
     page.add(
@@ -80,7 +127,17 @@ def main(page: ft.Page):
                alignment=ft.MainAxisAlignment.CENTER),
 
         # Sezione 3
-        # TODO
+        ft.Divider(),
+        ft.Text("Aggiungi nuovo strumento", size=20),
+        ft.Row(spacing=30,
+               controls=[
+                   input_tipo,
+                   input_marca,
+                   input_anno,
+                   ft.Row(controls=[pulsante_meno, input_valore, pulsante_piu])
+               ],
+               alignment=ft.MainAxisAlignment.CENTER),
+        pulsante_aggiungi_strumento,
 
         # Sezione 4
         ft.Divider(),
